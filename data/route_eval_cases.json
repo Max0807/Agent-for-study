@@ -1,0 +1,28 @@
+[
+  {
+    "id": "case-1",
+    "question": "公司的差旅报销上限是多少？",
+    "expected": "knowledge_base"
+  },
+  {
+    "id": "case-2",
+    "question": "请计算 125.5 乘以 8 再减去 60。",
+    "expected": "calculator"
+  },
+  {
+    "id": "case-3",
+    "question": "查询上个月每个部门的订单总额。",
+    "expected": "sql"
+  },
+  {
+    "id": "case-4",
+    "question": "帮我处理一下这个问题。",
+    "expected": "clarify"
+  },
+  {
+    "id": "case-5",
+    "question": "知识库里有没有关于年假的规定？",
+    "expected": "knowledge_base"
+  }
+]
+

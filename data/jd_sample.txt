@@ -1,0 +1,5 @@
+岗位一：负责企业知识库 RAG 系统开发，要求熟悉 Python、FastAPI、Embedding、向量数据库和 Docker。
+岗位二：负责 AI Agent 工作流和工具调用，要求熟悉 Python、Prompt Engineering、RAG、LangChain 和 SQL。
+岗位三：负责大模型应用后端服务，要求掌握 Python、FastAPI、Redis、Docker、日志和异常处理。
+岗位四：负责知识库检索效果优化，要求理解 Embedding、向量数据库、重排、RAG 评估和 Prompt Engineering。
+

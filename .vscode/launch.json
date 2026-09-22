@@ -1,0 +1,48 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Step 1 - JD keywords",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/step1_jd_keywords.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Step 2 - First API",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/step2_first_api.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Step 3 - Chat CLI",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/step3_chat_cli.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Step 4 - Prompt playground",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/step4_prompt_playground.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Step 5 - Structured output",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/step5_structured_output.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Step 6 - Prompt eval",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/step6_prompt_eval.py",
+      "console": "integratedTerminal"
+    }
+  ]
+}
+

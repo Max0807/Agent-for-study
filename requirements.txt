@@ -1,0 +1,14 @@
+openai
+python-dotenv
+pydantic
+
+fastapi[standard]
+pydantic-settings
+pytest
+httpx
+
+pypdf
+beautifulsoup4
+markdown-it-py
+langchain-text-splitters
+python-multipart
