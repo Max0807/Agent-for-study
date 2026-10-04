@@ -12,3 +12,7 @@ beautifulsoup4
 markdown-it-py
 langchain-text-splitters
 python-multipart
+
+# Day7: local embeddings and persistent vector database
+sentence-transformers
+chromadb

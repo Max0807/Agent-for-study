@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 
 from app.agent_service import AgentServiceError, run_agent
 from app.config import DATABASE_FILE, get_document_settings
@@ -16,15 +17,30 @@ from app.document_service import (
     UnsupportedDocumentTypeError,
     parse_document_bytes,
 )
+from app.embedding_service import EmbeddingServiceError
+from app.index_service import (
+    KnowledgeIndexError,
+    get_knowledge_stats,
+    search_knowledge_base,
+)
 from app.logging_config import configure_logging
+from app.rag_service import RagServiceError, ask_rag  # 处理RAG公共逻辑
+from app.rag_stream_service import stream_rag  # 处理流式业务
 from app.schemas import (
     AgentRequest,
     AgentResponse,
     DocumentParseResponse,
     HealthResponse,
+    KnowledgeSearchRequest,
+    KnowledgeSearchResponse,
+    KnowledgeStatsResponse,
+    RagRequest,
+    RagResponse,
+    RagStreamRequest,
     SalesQueryResponse,
-)
+)  # 定义请求和响应结构
 from app.tools import initialize_database, query_sales
+from app.vector_store import VectorStoreError
 
 
 logger = logging.getLogger(__name__)  # 获取当前模块的日志器,后面每个接口和中间件都用它记录日志,方便排查问题
@@ -42,9 +58,9 @@ async def lifespan(_: FastAPI):  # 应用生命周期管理
 
 
 app = FastAPI(
-    title="公司销售 Agent API",
-    description="通过 DeepSeek Tool Calling 调用计算器和 SQLite 销售查询工具。",
-    version="1.0.0",
+    title="公司 AI Agent 与知识库 API",
+    description="包含销售 Agent、文档解析、向量检索、Naive RAG 以及 Day9 流式多轮问答。",
+    version="1.3.0",
     lifespan=lifespan,  # 表示服务启动和关闭时使用上述生命周期函数。
 )  # 创建 FastAPI 应用实例;这些元信息会自动出现在 FastAPI 生成的 Swagger 文档页面上
 
@@ -128,3 +144,91 @@ async def parse_uploaded_document(
         raise HTTPException(status_code=415, detail=str(error)) from error
     except DocumentParseError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post(
+    "/knowledge/search",
+    response_model=KnowledgeSearchResponse,
+    tags=["knowledge"],
+)
+def search_knowledge(request: KnowledgeSearchRequest) -> KnowledgeSearchResponse:
+    """把自然语言问题转换为向量，并返回知识库中最相关的 Top-k chunks。"""
+    try:
+        return search_knowledge_base(
+            request.query,
+            top_k=request.top_k,
+            source=request.source,
+            file_type=request.file_type,
+            title=request.title,
+        )
+    except KnowledgeIndexError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except (EmbeddingServiceError, VectorStoreError) as error:
+        logger.warning("知识库检索暂时不可用：%s", error)
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.get(
+    "/knowledge/stats",
+    response_model=KnowledgeStatsResponse,
+    tags=["knowledge"],
+)
+def knowledge_stats() -> KnowledgeStatsResponse:
+    """返回当前 Chroma collection 名称和已经保存的 chunk 数量。"""
+    try:
+        return get_knowledge_stats()
+    except VectorStoreError as error:
+        logger.warning("无法读取知识库状态：%s", error)
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.post(
+    "/rag/ask",
+    response_model=RagResponse,
+    tags=["rag"],
+)
+def ask_knowledge_base(request: RagRequest) -> RagResponse:
+    """检索知识库，把 Top-k chunks 作为上下文交给 DeepSeek，并返回答案和来源。"""
+    try:
+        return ask_rag(
+            request.question,
+            top_k=request.top_k,
+            source=request.source,
+            file_type=request.file_type,
+            title=request.title,
+        )
+    except KnowledgeIndexError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except (EmbeddingServiceError, VectorStoreError) as error:
+        logger.warning("RAG 检索暂时不可用：%s", error)
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except RagServiceError as error:
+        logger.warning("RAG 生成失败：%s", error)
+        raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+@app.post(
+    "/rag/stream",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "按 sources、delta、done/error 顺序返回的 SSE 事件流。",
+            "content": {"text/event-stream": {}},
+        }
+    },
+    tags=["rag"],
+)
+def stream_knowledge_base(request: RagStreamRequest) -> StreamingResponse:
+    """执行流式多轮 RAG，并把生成器包装成 SSE HTTP 响应。
+
+    请求中的 history 由客户端维护，服务器不在全局变量中保存任何会话。
+    返回头发送后发生的异常会由 stream_rag() 转换为 error 事件。
+    """
+    return StreamingResponse(
+        stream_rag(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

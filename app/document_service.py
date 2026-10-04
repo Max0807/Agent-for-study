@@ -27,13 +27,13 @@ def parse_document_bytes(
 ) -> DocumentParseResponse:
     """把内存中的文件内容解析为带元数据的 chunks。"""
     settings = settings or get_document_settings()
-    safe_filename = Path(filename).name
-    extension = Path(safe_filename).suffix.lower()
+    safe_filename = Path(filename).name  #  只取文件名部分，去掉路径
+    extension = Path(safe_filename).suffix.lower()  # 提取扩展名并转小写
 
     if not safe_filename:  # 检查文件名
         raise DocumentParseError("文件名不能为空。")
-    if extension not in settings.supported_extensions:  # 检查文件扩展名
-        supported = ", ".join(sorted(settings.supported_extensions))
+    if extension not in settings.supported_extensions:  # 检查文件扩展名是否在允许列表中
+        supported = ", ".join(sorted(settings.supported_extensions))  # 如果不在，报错信息会列出所有支持的格式
         raise UnsupportedDocumentTypeError(
             f"不支持 {extension or '无扩展名文件'}；支持的格式：{supported}。"
         )
@@ -44,7 +44,7 @@ def parse_document_bytes(
         raise DocumentTooLargeError(f"文件超过 {limit_mb:g} MB 的大小限制。")
 
     try:
-        sections = load_document(content, safe_filename)
+        sections = load_document(content, safe_filename)  # 根据扩展名选择对应的解析器，返回 DocumentSection 列表
     except DocumentLoadError as error:
         raise DocumentParseError(str(error)) from error
 

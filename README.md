@@ -200,3 +200,109 @@ python .\src\step6_prompt_eval.py
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
+
+## Day 7：Embedding 与向量知识库
+
+Day7 复用 Day6 的文档加载、清洗和分块结果，再使用 Sentence Transformers
+生成向量，并把文本、向量和来源元数据持久化到 Chroma。Day7 只负责检索，暂不让
+DeepSeek 生成答案；检索结果会在 Day8 作为 RAG 的上下文。
+
+如果还没有 `llm-fastapi` 环境，先创建一次；已经创建过则直接激活：
+
+```powershell
+conda create -n llm-fastapi python=3.11 -y
+conda activate llm-fastapi
+python -m pip install -r requirements.txt
+```
+
+项目已经在 `data/knowledge_base` 中准备了 20 份小型示例文档。首次建立索引：
+
+```powershell
+python .\src\day07_build_index.py
+```
+
+需要明确删除旧 collection 并重建时才使用：
+
+```powershell
+python .\src\day07_build_index.py --rebuild
+```
+
+命令行验证语义搜索：
+
+```powershell
+python .\src\day07_search.py "离开工位时电脑应该怎么处理？" --top-k 3
+python .\src\day07_search.py "九月华东销售情况" --file-type csv
+```
+
+启动 FastAPI：
+
+```powershell
+python -m uvicorn app.main:app --reload
+```
+
+打开 `http://127.0.0.1:8000/docs`，可以测试：
+
+- `GET /knowledge/stats`：查看 collection 名称和 chunk 数量。
+- `POST /knowledge/search`：执行 Top-k 语义检索和 metadata filter。
+
+运行全部自动测试：
+
+```powershell
+python -m pytest -q
+```
+
+## Day 8：Naive RAG 问答
+
+Day8 在 Day7 检索结果上增加上下文拼接和 DeepSeek 生成：先召回 Top-k chunks，
+给来源编号为 `S1`、`S2`，再把问题与上下文交给模型，最终返回答案和引用来源。
+
+开始前确认 Day7 索引已经存在：
+
+```powershell
+python -c "from app.vector_store import get_vector_store; print(get_vector_store().count())"
+```
+
+输出必须大于 0；否则先运行：
+
+```powershell
+python .\src\day07_build_index.py
+```
+
+命令行完成一次真实 RAG 问答（会调用 DeepSeek 并产生 Token 用量）：
+
+```powershell
+python .\src\day08_rag_cli.py "员工出差需要谁审批？" --top-k 3
+```
+
+启动 FastAPI：
+
+```powershell
+python -m uvicorn app.main:app --reload
+```
+
+在 `http://127.0.0.1:8000/docs` 测试 `POST /rag/ask`，请求体：
+
+```json
+{
+  "question": "员工出差需要谁审批？",
+  "top_k": 3
+}
+```
+
+`source`、`file_type`、`title` 都是可选的严格过滤条件；不需要过滤时请省略或设为
+`null`，不要保留 Swagger 中的占位字符串。没有检索结果时接口不会调用 DeepSeek，
+而是直接返回“根据当前知识库资料无法确定”。
+
+Day8 配置项：
+
+```dotenv
+RAG_TOP_K=5
+RAG_MAX_CONTEXT_CHARS=6000
+RAG_MAX_OUTPUT_TOKENS=800
+```
+
+运行自动测试不会调用真实 DeepSeek：
+
+```powershell
+python -m pytest -q
+```
